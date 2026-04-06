@@ -136,6 +136,50 @@ public class UserService {
         return response;
     }
 
+    public Map<String, Object> getDeleted() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            User admin = getCurrentUser();
+            if (admin.getRole() != Role.ADMIN) {
+                throw new RuntimeException("Only ADMIN can view deleted users");
+            }
+
+            List<Map<String, Object>> data = new ArrayList<>();
+            for (User user : userRepository.findByDeletedAtIsNotNull()) {
+                data.add(buildSafeUserPayload(user));
+            }
+            response.put("data", data);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+        }
+
+        return response;
+    }
+
+    public Map<String, Object> getUserOptions() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            User actor = getCurrentUser();
+            List<Map<String, Object>> data = new ArrayList<>();
+
+            if (actor.getRole() == Role.EMPLOYE) {
+                data.add(buildSafeUserPayload(actor));
+            } else {
+                for (User user : userRepository.findByDeletedAtIsNull()) {
+                    data.add(buildSafeUserPayload(user));
+                }
+            }
+
+            response.put("data", data);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+        }
+
+        return response;
+    }
+
     public Map<String, Object> updateRole(Long id, Role role) {
         Map<String, Object> response = new HashMap<>();
 

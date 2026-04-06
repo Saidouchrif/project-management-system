@@ -12,9 +12,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByDeletedAtIsNull();
 
+    List<Task> findByDeletedAtIsNotNull();
+
     List<Task> findByAssignedToAndDeletedAtIsNull(User user);
 
     List<Task> findByProjectAndDeletedAtIsNull(Project project);
+
+    List<Task> findByProjectAndDeletedAtIsNotNull(Project project);
 
     Optional<Task> findByTitle(String title);
 }

@@ -15,6 +15,11 @@ export const tasksApi = {
     return unwrapBackendResponse(response)
   },
 
+  async listDeletedTasks() {
+    const response = await apiClient.get('/api/tasks/deleted')
+    return unwrapBackendResponse(response)
+  },
+
   async getTasksByUser(userId) {
     const response = await apiClient.get(`/api/tasks/user/${userId}`)
     return unwrapBackendResponse(response)

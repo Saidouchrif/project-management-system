@@ -26,6 +26,11 @@ public class ProjectController {
         return projectService.getAll();
     }
 
+    @GetMapping("/deleted")
+    public Map<String, Object> getDeleted() {
+        return projectService.getDeleted();
+    }
+
     @DeleteMapping("/{id}")
     public Map<String, Object> delete(@PathVariable Long id) {
         return projectService.delete(id);

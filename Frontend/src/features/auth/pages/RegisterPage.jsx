@@ -40,7 +40,7 @@ export function RegisterPage({ onGoLogin }) {
       <section className="pm-auth-card">
         <h2>Inscription</h2>
         <p>
-          Cette route cree toujours un user avec role <strong>EMPLOYE</strong>.
+          Chaque nouveau compte est cree par defaut avec le role <strong>EMPLOYE</strong>.
         </p>
 
         <form onSubmit={onSubmit} className="pm-form">

@@ -11,7 +11,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByDeletedAtIsNull();
 
+    List<Project> findByDeletedAtIsNotNull();
+
     List<Project> findByManagerAndDeletedAtIsNull(User manager);
+
+    List<Project> findByManagerAndDeletedAtIsNotNull(User manager);
 
     Optional<Project> findByName(String name);
 }

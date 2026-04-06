@@ -22,6 +22,16 @@ export const usersApi = {
     return unwrapBackendResponse(response)
   },
 
+  async listDeletedUsers() {
+    const response = await apiClient.get('/api/users/deleted')
+    return unwrapBackendResponse(response)
+  },
+
+  async listUserOptions() {
+    const response = await apiClient.get('/api/users/options')
+    return unwrapBackendResponse(response)
+  },
+
   async deleteUser(userId) {
     const response = await apiClient.delete(`/api/users/${userId}`)
     return unwrapBackendResponse(response)

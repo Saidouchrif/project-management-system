@@ -77,6 +77,24 @@ public class ProjectService {
         return res;
     }
 
+    public Map<String, Object> getDeleted() {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            User actor = getCurrentUser();
+
+            if (actor.getRole() == Role.ADMIN) {
+                res.put("data", projectRepository.findByDeletedAtIsNotNull());
+            } else if (actor.getRole() == Role.MANAGER) {
+                res.put("data", projectRepository.findByManagerAndDeletedAtIsNotNull(actor));
+            } else {
+                throw new RuntimeException("Only ADMIN or MANAGER can view deleted projects");
+            }
+        } catch (Exception e) {
+            res.put("error", e.getMessage());
+        }
+        return res;
+    }
+
     public Map<String, Object> delete(Long id) {
         Map<String, Object> res = new HashMap<>();
         try {

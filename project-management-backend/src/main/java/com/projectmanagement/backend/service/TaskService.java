@@ -116,6 +116,29 @@ public class TaskService {
         return res;
     }
 
+    public Map<String, Object> getDeleted() {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            User actor = getCurrentUser();
+
+            if (actor.getRole() == Role.ADMIN) {
+                res.put("data", taskRepository.findByDeletedAtIsNotNull());
+            } else if (actor.getRole() == Role.MANAGER) {
+                List<Task> managerTasks = new ArrayList<>();
+                List<Project> managerProjects = projectRepository.findByManagerAndDeletedAtIsNull(actor);
+                for (Project project : managerProjects) {
+                    managerTasks.addAll(taskRepository.findByProjectAndDeletedAtIsNotNull(project));
+                }
+                res.put("data", managerTasks);
+            } else {
+                throw new RuntimeException("Only ADMIN or MANAGER can view deleted tasks");
+            }
+        } catch (Exception e) {
+            res.put("error", e.getMessage());
+        }
+        return res;
+    }
+
     public Map<String, Object> getByUser(Long userId) {
         Map<String, Object> res = new HashMap<>();
         try {

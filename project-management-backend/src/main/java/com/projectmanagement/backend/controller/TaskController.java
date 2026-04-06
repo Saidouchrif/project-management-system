@@ -30,6 +30,11 @@ public class TaskController {
         return taskService.getAll();
     }
 
+    @GetMapping("/deleted")
+    public Map<String, Object> getDeleted() {
+        return taskService.getDeleted();
+    }
+
     @GetMapping("/user/{userId}")
     public Map<String, Object> getByUser(@PathVariable Long userId) {
         return taskService.getByUser(userId);

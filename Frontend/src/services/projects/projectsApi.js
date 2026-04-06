@@ -14,6 +14,11 @@ export const projectsApi = {
     return unwrapBackendResponse(response)
   },
 
+  async listDeletedProjects() {
+    const response = await apiClient.get('/api/projects/deleted')
+    return unwrapBackendResponse(response)
+  },
+
   async deleteProject(projectId) {
     const response = await apiClient.delete(`/api/projects/${projectId}`)
     return unwrapBackendResponse(response)

@@ -6,8 +6,8 @@ import { StatusMessage } from '../../../components/ui/StatusMessage'
 export function LoginPage({ onGoRegister }) {
   const { login } = useAuth()
   const [form, setForm] = useState({
-    email: 'admin@pms.local',
-    password: 'admin123',
+    email: '',
+    password: '',
   })
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')

@@ -50,6 +50,16 @@ public class UserController {
         return userService.getAll();
     }
 
+    @GetMapping("/deleted")
+    public Map<String, Object> getDeleted() {
+        return userService.getDeleted();
+    }
+
+    @GetMapping("/options")
+    public Map<String, Object> getUserOptions() {
+        return userService.getUserOptions();
+    }
+
     @DeleteMapping("/{id}")
     public Map<String, Object> delete(@PathVariable Long id) {
         return userService.delete(id);
