@@ -20,6 +20,7 @@ Suppression logique: `deletedAt` (soft delete) sur `User`, `Project`, `Task`.
 - `MANAGER` cree des projets.
 - `MANAGER` assigne des taches uniquement dans ses propres projets, et uniquement a des `EMPLOYE`.
 - `EMPLOYE` peut changer uniquement le statut de ses propres taches.
+- tout utilisateur authentifie peut voir son profil et modifier ses informations (name/email) et son mot de passe.
 - `ADMIN` voit tout, `MANAGER` voit ses projets/taches, `EMPLOYE` voit ses taches.
 
 ## 3. Authentification JWT
@@ -178,6 +179,53 @@ Acces: `ADMIN`
 Description: lister utilisateurs actifs (`deletedAt is null`).
 
 Body JSON: Aucun.
+
+### GET `/api/users/me`
+
+Acces: Authentifie (`ADMIN`, `MANAGER`, `EMPLOYE`)  
+Description: recuperer le profil du user connecte.
+
+Body JSON: Aucun.
+
+### PUT `/api/users/me`
+
+Acces: Authentifie (`ADMIN`, `MANAGER`, `EMPLOYE`)  
+Description: modifier ses propres informations (`name` et/ou `email`).
+
+Body JSON:
+
+```json
+{
+  "name": "Nouveau Nom",
+  "email": "nouveau.email@example.com"
+}
+```
+
+Regles:
+
+- au moins un champ (`name` ou `email`) est obligatoire
+- si l email existe deja pour un autre user, retour erreur: `Email already exists`
+
+### PUT `/api/users/me/password`
+
+Acces: Authentifie (`ADMIN`, `MANAGER`, `EMPLOYE`)  
+Description: changer son mot de passe.
+
+Body JSON:
+
+```json
+{
+  "oldPassword": "ancienMotDePasse",
+  "newPassword": "nouveauMotDePasse"
+}
+```
+
+Regles:
+
+- `oldPassword` obligatoire
+- `newPassword` obligatoire
+- `newPassword` doit contenir au moins 6 caracteres
+- `newPassword` doit etre different de l ancien mot de passe
 
 ### DELETE `/api/users/{id}`
 

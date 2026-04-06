@@ -33,6 +33,11 @@ public class SecurityConfig {
                 // PUBLIC
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
 
+                // USER SELF-PROFILE
+                .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/users/me/password").authenticated()
+
                 // ADMIN
                 .requestMatchers("/api/users/**").hasAuthority("ADMIN")
 

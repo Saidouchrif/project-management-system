@@ -164,6 +164,89 @@ public class UserService {
         return response;
     }
 
+    public Map<String, Object> getMyProfile() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            User currentUser = getCurrentUser();
+            response.put("data", buildSafeUserPayload(currentUser));
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+        }
+
+        return response;
+    }
+
+    public Map<String, Object> updateMyProfile(String name, String email) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            User currentUser = getCurrentUser();
+
+            boolean hasName = name != null && !name.isBlank();
+            boolean hasEmail = email != null && !email.isBlank();
+
+            if (!hasName && !hasEmail) {
+                throw new RuntimeException("Name or email is required");
+            }
+
+            if (hasEmail) {
+                String newEmail = email.trim().toLowerCase(Locale.ROOT);
+                Optional<User> existing = userRepository.findByEmail(newEmail);
+                if (existing.isPresent() && !Objects.equals(existing.get().getId(), currentUser.getId())) {
+                    throw new RuntimeException("Email already exists");
+                }
+                currentUser.setEmail(newEmail);
+            }
+
+            if (hasName) {
+                currentUser.setName(name.trim());
+            }
+
+            userRepository.save(currentUser);
+
+            response.put("message", "Profile updated successfully");
+            response.put("data", buildSafeUserPayload(currentUser));
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+        }
+
+        return response;
+    }
+
+    public Map<String, Object> changeMyPassword(String oldPassword, String newPassword) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            User currentUser = getCurrentUser();
+
+            if (oldPassword == null || oldPassword.isBlank()) {
+                throw new RuntimeException("Old password is required");
+            }
+            if (newPassword == null || newPassword.isBlank()) {
+                throw new RuntimeException("New password is required");
+            }
+            if (newPassword.length() < 6) {
+                throw new RuntimeException("New password must contain at least 6 characters");
+            }
+            if (!passwordEncoder.matches(oldPassword, currentUser.getPassword())) {
+                throw new RuntimeException("Old password is incorrect");
+            }
+            if (passwordEncoder.matches(newPassword, currentUser.getPassword())) {
+                throw new RuntimeException("New password must be different from old password");
+            }
+
+            currentUser.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(currentUser);
+
+            response.put("message", "Password changed successfully");
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+        }
+
+        return response;
+    }
+
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
