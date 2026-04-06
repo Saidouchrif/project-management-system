@@ -20,10 +20,9 @@ public class TaskController {
     public Map<String, Object> create(
             @RequestParam Long projectId,
             @RequestParam Long userId,
-            @RequestParam Long managerId,
             @RequestBody Task task) {
 
-        return taskService.create(projectId, userId, task, managerId);
+        return taskService.create(projectId, userId, task);
     }
 
     @GetMapping
@@ -44,5 +43,10 @@ public class TaskController {
     @PutMapping("/restore/{id}")
     public Map<String, Object> restore(@PathVariable Long id) {
         return taskService.restore(id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public Map<String, Object> updateStatus(@PathVariable Long id, @RequestParam String status) {
+        return taskService.updateMyTaskStatus(id, status);
     }
 }

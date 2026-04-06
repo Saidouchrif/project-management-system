@@ -20,10 +20,14 @@ public class UserController {
     @PostMapping
     public Map<String, Object> create(
             @RequestBody User user,
-            @RequestParam Role role,
-            @RequestParam Long adminId) {
+            @RequestParam Role role) {
 
-        return userService.create(user, role, adminId);
+        return userService.create(user, role);
+    }
+
+    @PutMapping("/{id}/role")
+    public Map<String, Object> updateRole(@PathVariable Long id, @RequestParam Role role) {
+        return userService.updateRole(id, role);
     }
 
     @GetMapping

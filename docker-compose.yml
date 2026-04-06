@@ -36,6 +36,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/projectdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
+      JWT_SECRET: mySuperSecretJwtKeyForProjectManagement123!
+      APP_ADMIN_EMAIL: admin@pms.local
+      APP_ADMIN_PASSWORD: admin123
+      APP_ADMIN_NAME: System Admin
     ports:
       - "8080:8080"
     depends_on:

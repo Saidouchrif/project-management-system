@@ -32,7 +32,7 @@ public class JwtAuthFilter extends org.springframework.web.filter.OncePerRequest
 
             String token = header.substring(7);
 
-            if (jwtUtil.validateToken(token)) {
+            if (jwtUtil.validateToken(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 String email = jwtUtil.extractEmail(token);
 

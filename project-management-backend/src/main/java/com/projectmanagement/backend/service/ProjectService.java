@@ -2,6 +2,8 @@ package com.projectmanagement.backend.service;
 
 import com.projectmanagement.backend.entity.*;
 import com.projectmanagement.backend.repository.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,16 +21,19 @@ public class ProjectService {
         this.userRepository = userRepository;
     }
 
-    public Map<String, Object> create(Project project, Long managerId) {
+    public Map<String, Object> create(Project project) {
 
         Map<String, Object> response = new HashMap<>();
 
         try {
-            User manager = userRepository.findById(managerId)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+            User manager = getCurrentUser();
 
             if (manager.getRole() != Role.MANAGER) {
                 throw new RuntimeException("Only MANAGER can create project");
+            }
+
+            if (project.getName() == null || project.getName().isBlank()) {
+                throw new RuntimeException("Project name is required");
             }
 
             Optional<Project> existing = projectRepository.findByName(project.getName());
@@ -57,7 +62,15 @@ public class ProjectService {
     public Map<String, Object> getAll() {
         Map<String, Object> res = new HashMap<>();
         try {
-            res.put("data", projectRepository.findByDeletedAtIsNull());
+            User actor = getCurrentUser();
+
+            if (actor.getRole() == Role.ADMIN) {
+                res.put("data", projectRepository.findByDeletedAtIsNull());
+            } else if (actor.getRole() == Role.MANAGER) {
+                res.put("data", projectRepository.findByManagerAndDeletedAtIsNull(actor));
+            } else {
+                throw new RuntimeException("Only ADMIN or MANAGER can view projects");
+            }
         } catch (Exception e) {
             res.put("error", e.getMessage());
         }
@@ -67,8 +80,16 @@ public class ProjectService {
     public Map<String, Object> delete(Long id) {
         Map<String, Object> res = new HashMap<>();
         try {
+            User actor = getCurrentUser();
             Project p = projectRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            if (actor.getRole() == Role.MANAGER && !Objects.equals(p.getManager().getId(), actor.getId())) {
+                throw new RuntimeException("You can only delete your own projects");
+            }
+            if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.MANAGER) {
+                throw new RuntimeException("Only ADMIN or MANAGER can delete projects");
+            }
 
             p.setDeletedAt(LocalDateTime.now());
             projectRepository.save(p);
@@ -83,8 +104,16 @@ public class ProjectService {
     public Map<String, Object> restore(Long id) {
         Map<String, Object> res = new HashMap<>();
         try {
+            User actor = getCurrentUser();
             Project p = projectRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            if (actor.getRole() == Role.MANAGER && !Objects.equals(p.getManager().getId(), actor.getId())) {
+                throw new RuntimeException("You can only restore your own projects");
+            }
+            if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.MANAGER) {
+                throw new RuntimeException("Only ADMIN or MANAGER can restore projects");
+            }
 
             p.setDeletedAt(null);
             projectRepository.save(p);
@@ -94,5 +123,15 @@ public class ProjectService {
             res.put("error", e.getMessage());
         }
         return res;
+    }
+
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null) {
+            throw new RuntimeException("Unauthenticated user");
+        }
+
+        return userRepository.findByEmailAndDeletedAtIsNull(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
     }
 }
