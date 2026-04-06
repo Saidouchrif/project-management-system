@@ -1,15 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FormCard } from '../../../components/ui/FormCard'
 import { DataTable } from '../../../components/ui/DataTable'
 import { StatusMessage } from '../../../components/ui/StatusMessage'
 import { projectsApi } from '../../../services/projects/projectsApi'
 import { extractErrorMessage } from '../../shared/extractErrorMessage'
+import { PATHS } from '../../../routes/paths'
 
-export function ProjectsPage({ role }) {
+function resolveMode(path) {
+  if (path === PATHS.projectsCreate) return 'create'
+  if (path === PATHS.projectsDeleted) return 'deleted'
+  return 'list'
+}
+
+export function ProjectsPage({ role, path, navigate }) {
+  const mode = useMemo(() => resolveMode(path), [path])
   const isManager = role === 'MANAGER'
+
   const [projects, setProjects] = useState([])
   const [deletedProjects, setDeletedProjects] = useState([])
-  const [showDeletedHistory, setShowDeletedHistory] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,7 +30,6 @@ export function ProjectsPage({ role }) {
     try {
       const response = await projectsApi.listProjects()
       setProjects(Array.isArray(response.data) ? response.data : [])
-      setStatus('Liste projets mise a jour')
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
@@ -33,18 +40,24 @@ export function ProjectsPage({ role }) {
   const loadDeletedProjects = async () => {
     setStatus('')
     setError('')
+    setLoading(true)
     try {
       const response = await projectsApi.listDeletedProjects()
       setDeletedProjects(Array.isArray(response.data) ? response.data : [])
-      setStatus('Historique de suppression charge')
     } catch (err) {
       setError(extractErrorMessage(err))
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
+    if (mode === 'deleted') {
+      loadDeletedProjects()
+      return
+    }
     loadProjects()
-  }, [role])
+  }, [mode, role])
 
   const handleCreateProject = async (event) => {
     event.preventDefault()
@@ -54,7 +67,6 @@ export function ProjectsPage({ role }) {
       const response = await projectsApi.createProject(form)
       setStatus(response.message || 'Projet cree')
       setForm({ name: '', description: '' })
-      await loadProjects()
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -67,9 +79,6 @@ export function ProjectsPage({ role }) {
       const response = await projectsApi.deleteProject(projectId)
       setStatus(response.message || 'Projet supprime')
       await loadProjects()
-      if (showDeletedHistory) {
-        await loadDeletedProjects()
-      }
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -81,72 +90,121 @@ export function ProjectsPage({ role }) {
     try {
       const response = await projectsApi.restoreProject(projectId)
       setStatus(response.message || 'Projet restaure')
-      await loadProjects()
       await loadDeletedProjects()
     } catch (err) {
       setError(extractErrorMessage(err))
     }
   }
 
+  const topActions = (
+    <div className="pm-subnav" role="tablist" aria-label="Navigation projets">
+      <button
+        type="button"
+        className={mode === 'list' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.projectsList)}
+      >
+        Projets actifs
+      </button>
+      {isManager ? (
+        <button
+          type="button"
+          className={mode === 'create' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+          onClick={() => navigate(PATHS.projectsCreate)}
+        >
+          Ajouter projet
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className={mode === 'deleted' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.projectsDeleted)}
+      >
+        Historique suppression
+      </button>
+    </div>
+  )
+
   return (
     <>
       <FormCard
-        title="Projets en cours"
-        subtitle={
-          isManager
-            ? 'Vous gerez vos projets avec suivi centralise'
-            : 'Supervision globale des projets de la plateforme'
-        }
+        title="Espace projets"
+        subtitle={isManager ? 'Pilotage de vos projets et portefeuille manager' : 'Supervision des projets plateforme'}
+        actions={topActions}
       >
-        <div className="pm-action-row">
-          <button type="button" onClick={loadProjects} disabled={loading}>
-            {loading ? 'Chargement...' : 'Actualiser'}
-          </button>
-          <button
-            type="button"
-            className="pm-link-btn"
-            onClick={async () => {
-              const next = !showDeletedHistory
-              setShowDeletedHistory(next)
-              if (next) {
-                await loadDeletedProjects()
-              }
-            }}
-          >
-            {showDeletedHistory ? 'Masquer historique suppression' : 'Historique suppression'}
-          </button>
-        </div>
-
         <StatusMessage type="success">{status}</StatusMessage>
         <StatusMessage type="error">{error}</StatusMessage>
-
-        <DataTable
-          columns={[
-            { key: 'id', label: 'ID' },
-            { key: 'name', label: 'Projet' },
-            { key: 'description', label: 'Description' },
-            {
-              key: 'manager',
-              label: 'Manager',
-              render: (row) => row?.manager?.name || row?.manager?.email || '-',
-            },
-            {
-              key: 'actions',
-              label: 'Action',
-              render: (row) => (
-                <button type="button" onClick={() => handleDelete(row.id)}>
-                  Supprimer
-                </button>
-              ),
-            },
-          ]}
-          rows={projects}
-          emptyMessage="Aucun projet actif"
-        />
       </FormCard>
 
-      {showDeletedHistory ? (
-        <FormCard title="Historique suppression projets" subtitle="Selectionne le projet a restaurer">
+      {mode === 'list' ? (
+        <FormCard
+          title="Projets actifs"
+          subtitle="Suivi des projets en cours et operations de maintenance"
+          actions={
+            <button type="button" onClick={loadProjects} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
+          <DataTable
+            columns={[
+              { key: 'id', label: 'ID' },
+              { key: 'name', label: 'Projet' },
+              { key: 'description', label: 'Description' },
+              {
+                key: 'manager',
+                label: 'Manager',
+                render: (row) => row?.manager?.name || row?.manager?.email || '-',
+              },
+              {
+                key: 'actions',
+                label: 'Action',
+                render: (row) => (
+                  <button type="button" className="pm-btn-danger" onClick={() => handleDelete(row.id)}>
+                    Supprimer
+                  </button>
+                ),
+              },
+            ]}
+            rows={projects}
+            emptyMessage="Aucun projet actif"
+          />
+        </FormCard>
+      ) : null}
+
+      {mode === 'create' && isManager ? (
+        <FormCard title="Ajouter un projet" subtitle="Creation d un nouveau projet avec descriptif metier">
+          <form className="pm-form" onSubmit={handleCreateProject}>
+            <label>
+              Nom du projet
+              <input
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Description
+              <textarea
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </label>
+            <button type="submit">Creer projet</button>
+          </form>
+        </FormCard>
+      ) : null}
+
+      {mode === 'deleted' ? (
+        <FormCard
+          title="Historique de suppression"
+          subtitle="Restaurez un projet supprime depuis cette liste"
+          actions={
+            <button type="button" onClick={loadDeletedProjects} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
           <DataTable
             columns={[
               { key: 'id', label: 'ID' },
@@ -170,32 +228,6 @@ export function ProjectsPage({ role }) {
             rows={deletedProjects}
             emptyMessage="Aucun projet supprime"
           />
-        </FormCard>
-      ) : null}
-
-      {isManager ? (
-        <FormCard title="Nouveau projet" subtitle="Creation rapide pour demarrer vos workflows">
-          <form className="pm-form" onSubmit={handleCreateProject}>
-            <label>
-              Nom du projet
-              <input
-                type="text"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                value={form.description}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, description: event.target.value }))
-                }
-              />
-            </label>
-            <button type="submit">Creer projet</button>
-          </form>
         </FormCard>
       ) : null}
     </>

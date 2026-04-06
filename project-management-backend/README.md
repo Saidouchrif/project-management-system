@@ -46,6 +46,7 @@ Le projet peut marcher avec `application.properties`, mais en Docker Compose on 
 - `APP_ADMIN_EMAIL`
 - `APP_ADMIN_PASSWORD`
 - `APP_ADMIN_NAME`
+- `APP_CORS_ALLOWED_ORIGINS`
 
 Admin bootstrap (au demarrage):
 
@@ -180,6 +181,23 @@ Description: lister utilisateurs actifs (`deletedAt is null`).
 
 Body JSON: Aucun.
 
+### GET `/api/users/deleted`
+
+Acces: `ADMIN`  
+Description: lister utilisateurs supprimes (soft delete).
+
+Body JSON: Aucun.
+
+### GET `/api/users/options`
+
+Acces: `ADMIN`, `MANAGER`, `EMPLOYE`  
+Description:
+
+- `ADMIN`/`MANAGER`: liste des utilisateurs actifs pour les select options frontend
+- `EMPLOYE`: retourne uniquement son propre compte
+
+Body JSON: Aucun.
+
 ### GET `/api/users/me`
 
 Acces: Authentifie (`ADMIN`, `MANAGER`, `EMPLOYE`)  
@@ -267,6 +285,16 @@ Description:
 
 Body JSON: Aucun.
 
+### GET `/api/projects/deleted`
+
+Acces: `ADMIN`, `MANAGER`  
+Description:
+
+- `ADMIN`: tous les projets supprimes
+- `MANAGER`: uniquement ses projets supprimes
+
+Body JSON: Aucun.
+
 ### DELETE `/api/projects/{id}`
 
 Acces: `ADMIN`, `MANAGER`  
@@ -318,6 +346,16 @@ Description:
 - `ADMIN`: toutes les taches actives
 - `MANAGER`: taches de ses projets
 - `EMPLOYE`: ses taches assignees
+
+Body JSON: Aucun.
+
+### GET `/api/tasks/deleted`
+
+Acces: `ADMIN`, `MANAGER`  
+Description:
+
+- `ADMIN`: toutes les taches supprimees
+- `MANAGER`: taches supprimees de ses projets
 
 Body JSON: Aucun.
 
@@ -388,3 +426,24 @@ Quand tu appelles depuis le frontend:
 6. Manager cree tache (`POST /api/tasks?projectId=...&userId=...`)
 7. Login employe
 8. Employe change statut (`PATCH /api/tasks/{id}/status?status=DONE`)
+
+## 9. Tests et CI backend
+
+Le backend contient des tests integration qui couvrent les routes principales:
+
+- Auth: `register`, `login`, `refresh`, `me`
+- Users: `create`, `list`, `deleted`, `options`, `restore`, `role update`, `self profile`, `self password`
+- Projects: `create`, `list`, `deleted`, `restore`, `delete`
+- Tasks: `create`, `list`, `user tasks`, `status update`, `deleted`, `restore`, `delete`
+
+Fichiers:
+
+- tests integration: `src/test/java/com/projectmanagement/backend/ApiRoutesIntegrationTest.java`
+- configuration test: `src/test/resources/application-test.properties`
+- CI GitHub Actions: `.github/workflows/backend-ci.yml`
+
+Commande locale:
+
+```bash
+./mvnw clean test
+```

@@ -1,7 +1,9 @@
 package com.projectmanagement.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -25,13 +27,13 @@ public class Task {
 
     private LocalDateTime deletedAt;
 
-    // 🔗 Project
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonIgnoreProperties({"tasks"})
     private Project project;
 
-    // 🔗 Employe li assigned
     @ManyToOne
     @JoinColumn(name = "assigned_to")
+    @JsonIgnoreProperties({"password", "projects", "tasks", "deletedAt"})
     private User assignedTo;
 }

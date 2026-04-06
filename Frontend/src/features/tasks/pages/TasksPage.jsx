@@ -7,18 +7,27 @@ import { projectsApi } from '../../../services/projects/projectsApi'
 import { usersApi } from '../../../services/users/usersApi'
 import { extractErrorMessage } from '../../shared/extractErrorMessage'
 import { useAuth } from '../../../services/auth/AuthContext'
+import { PATHS } from '../../../routes/paths'
 
 const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE']
 
-export function TasksPage({ role }) {
+function resolveMode(path) {
+  if (path === PATHS.tasksCreate) return 'create'
+  if (path === PATHS.tasksByUser) return 'by-user'
+  if (path === PATHS.tasksDeleted) return 'deleted'
+  return 'board'
+}
+
+export function TasksPage({ role, path, navigate }) {
   const { user } = useAuth()
+  const mode = useMemo(() => resolveMode(path), [path])
+
   const isManager = role === 'MANAGER'
   const isAdmin = role === 'ADMIN'
   const isEmploye = role === 'EMPLOYE'
 
   const [tasks, setTasks] = useState([])
   const [deletedTasks, setDeletedTasks] = useState([])
-  const [showDeletedHistory, setShowDeletedHistory] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -44,7 +53,6 @@ export function TasksPage({ role }) {
     try {
       const response = await tasksApi.listTasks()
       setTasks(Array.isArray(response.data) ? response.data : [])
-      setStatus('Taches chargees')
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
@@ -55,12 +63,14 @@ export function TasksPage({ role }) {
   const loadDeletedTasks = async () => {
     setStatus('')
     setError('')
+    setLoading(true)
     try {
       const response = await tasksApi.listDeletedTasks()
       setDeletedTasks(Array.isArray(response.data) ? response.data : [])
-      setStatus('Historique suppression charge')
     } catch (err) {
       setError(extractErrorMessage(err))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -80,24 +90,40 @@ export function TasksPage({ role }) {
       if (!selectedUserId && users.length > 0) {
         setSelectedUserId(String(users[0].id))
       }
+
       if (!taskForm.userId && users.length > 0) {
         const defaultEmploye = users.find((item) => item.role === 'EMPLOYE')
         if (defaultEmploye) {
           setTaskForm((prev) => ({ ...prev, userId: String(defaultEmploye.id) }))
         }
       }
+
       if (!taskForm.projectId && projects.length > 0) {
         setTaskForm((prev) => ({ ...prev, projectId: String(projects[0].id) }))
       }
     } catch {
-      // options are best-effort; errors are surfaced in action calls
+      // options are loaded in best effort mode
     }
   }
 
   useEffect(() => {
+    if (mode === 'deleted') {
+      loadDeletedTasks()
+      return
+    }
+
+    if (mode === 'by-user') {
+      loadSelectOptions()
+      return
+    }
+
+    if (mode === 'create') {
+      loadSelectOptions()
+      return
+    }
+
     loadTasks()
-    loadSelectOptions()
-  }, [role])
+  }, [mode, role])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -129,7 +155,6 @@ export function TasksPage({ role }) {
         description: '',
         status: 'TODO',
       }))
-      await loadTasks()
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -142,9 +167,6 @@ export function TasksPage({ role }) {
       const response = await tasksApi.deleteTask(taskId)
       setStatus(response.message || 'Tache supprimee')
       await loadTasks()
-      if (showDeletedHistory) {
-        await loadDeletedTasks()
-      }
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -156,7 +178,6 @@ export function TasksPage({ role }) {
     try {
       const response = await tasksApi.restoreTask(taskId)
       setStatus(response.message || 'Tache restauree')
-      await loadTasks()
       await loadDeletedTasks()
     } catch (err) {
       setError(extractErrorMessage(err))
@@ -182,107 +203,88 @@ export function TasksPage({ role }) {
     try {
       const response = await tasksApi.getTasksByUser(selectedUserId)
       setTasksByUser(Array.isArray(response.data) ? response.data : [])
-      setStatus('Taches du collaborateur chargees')
     } catch (err) {
       setError(extractErrorMessage(err))
     }
   }
 
+  const topActions = (
+    <div className="pm-subnav" role="tablist" aria-label="Navigation taches">
+      <button
+        type="button"
+        className={mode === 'board' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.tasksBoard)}
+      >
+        Board
+      </button>
+      {isManager ? (
+        <button
+          type="button"
+          className={mode === 'create' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+          onClick={() => navigate(PATHS.tasksCreate)}
+        >
+          Ajouter tache
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className={mode === 'by-user' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.tasksByUser)}
+      >
+        Par utilisateur
+      </button>
+      {isAdmin || isManager ? (
+        <button
+          type="button"
+          className={mode === 'deleted' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+          onClick={() => navigate(PATHS.tasksDeleted)}
+        >
+          Historique suppression
+        </button>
+      ) : null}
+    </div>
+  )
+
   return (
     <>
-      <FormCard title="Taches et tickets" subtitle="Vision claire des priorites et avancement">
-        <div className="pm-inline-form">
-          <label>
-            Statut
-            <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
-              <option value="">Tous</option>
-              {TASK_STATUSES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Recherche
-            <input
-              type="text"
-              value={filterText}
-              onChange={(event) => setFilterText(event.target.value)}
-              placeholder="Titre ou description"
-            />
-          </label>
-          <button type="button" onClick={loadTasks} disabled={loading}>
-            {loading ? 'Chargement...' : 'Actualiser'}
-          </button>
-          {(isAdmin || isManager) && (
-            <button
-              type="button"
-              className="pm-link-btn"
-              onClick={async () => {
-                const next = !showDeletedHistory
-                setShowDeletedHistory(next)
-                if (next) {
-                  await loadDeletedTasks()
-                }
-              }}
-            >
-              {showDeletedHistory ? 'Masquer historique suppression' : 'Historique suppression'}
-            </button>
-          )}
-        </div>
-
+      <FormCard title="Espace taches" subtitle="Pilotage tickets, affectations et suivi d execution" actions={topActions}>
         <StatusMessage type="success">{status}</StatusMessage>
         <StatusMessage type="error">{error}</StatusMessage>
-
-        <DataTable
-          columns={[
-            { key: 'id', label: 'ID' },
-            { key: 'title', label: 'Titre' },
-            { key: 'status', label: 'Statut' },
-            {
-              key: 'assignee',
-              label: 'Assigne a',
-              render: (row) => row?.assignedTo?.name || row?.assignedTo?.email || '-',
-            },
-            {
-              key: 'project',
-              label: 'Projet',
-              render: (row) => row?.project?.name || '-',
-            },
-            {
-              key: 'actions',
-              label: 'Actions',
-              render: (row) => (
-                <div className="pm-cell-actions">
-                  {(isAdmin || isManager) && (
-                    <button type="button" onClick={() => handleDeleteTask(row.id)}>
-                      Supprimer
-                    </button>
-                  )}
-                  {isEmploye && Number(row?.assignedTo?.id) === Number(user?.id) ? (
-                    <select
-                      value={row.status || 'TODO'}
-                      onChange={(event) => handleStatusUpdate(row.id, event.target.value)}
-                    >
-                      {TASK_STATUSES.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                </div>
-              ),
-            },
-          ]}
-          rows={filteredTasks}
-          emptyMessage="Aucune tache pour ce filtre"
-        />
       </FormCard>
 
-      {showDeletedHistory && (isAdmin || isManager) ? (
-        <FormCard title="Historique suppression taches" subtitle="Selectionne la tache a restaurer">
+      {mode === 'board' ? (
+        <FormCard
+          title="Board des taches"
+          subtitle="Filtrage rapide et suivi du statut des tickets"
+          actions={
+            <button type="button" onClick={loadTasks} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
+          <div className="pm-inline-form">
+            <label>
+              Statut
+              <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+                <option value="">Tous</option>
+                {TASK_STATUSES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Recherche
+              <input
+                type="text"
+                value={filterText}
+                onChange={(event) => setFilterText(event.target.value)}
+                placeholder="Titre ou description"
+              />
+            </label>
+          </div>
+
           <DataTable
             columns={[
               { key: 'id', label: 'ID' },
@@ -300,30 +302,44 @@ export function TasksPage({ role }) {
               },
               {
                 key: 'actions',
-                label: 'Action',
+                label: 'Actions',
                 render: (row) => (
-                  <button type="button" onClick={() => handleRestoreTask(row.id)}>
-                    Restaurer
-                  </button>
+                  <div className="pm-cell-actions">
+                    {(isAdmin || isManager) && (
+                      <button type="button" className="pm-btn-danger" onClick={() => handleDeleteTask(row.id)}>
+                        Supprimer
+                      </button>
+                    )}
+                    {isEmploye && Number(row?.assignedTo?.id) === Number(user?.id) ? (
+                      <select
+                        value={row.status || 'TODO'}
+                        onChange={(event) => handleStatusUpdate(row.id, event.target.value)}
+                      >
+                        {TASK_STATUSES.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </div>
                 ),
               },
             ]}
-            rows={deletedTasks}
-            emptyMessage="Aucune tache supprimee"
+            rows={filteredTasks}
+            emptyMessage="Aucune tache pour ce filtre"
           />
         </FormCard>
       ) : null}
 
-      {isManager ? (
-        <FormCard title="Nouvelle tache" subtitle="Affectation aux collaborateurs avec selection guidee">
+      {mode === 'create' && isManager ? (
+        <FormCard title="Ajouter une tache" subtitle="Selection guidee du projet et du collaborateur">
           <form className="pm-form" onSubmit={handleCreateTask}>
             <label>
               Projet
               <select
                 value={taskForm.projectId}
-                onChange={(event) =>
-                  setTaskForm((prev) => ({ ...prev, projectId: event.target.value }))
-                }
+                onChange={(event) => setTaskForm((prev) => ({ ...prev, projectId: event.target.value }))}
                 required
               >
                 <option value="" disabled>
@@ -368,9 +384,7 @@ export function TasksPage({ role }) {
               Description
               <textarea
                 value={taskForm.description}
-                onChange={(event) =>
-                  setTaskForm((prev) => ({ ...prev, description: event.target.value }))
-                }
+                onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
               />
             </label>
             <label>
@@ -391,41 +405,84 @@ export function TasksPage({ role }) {
         </FormCard>
       ) : null}
 
-      <FormCard title="Taches par utilisateur" subtitle="Selectionne un utilisateur pour afficher ses tickets">
-        <div className="pm-inline-form">
-          <label>
-            Utilisateur
-            <select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>
-              <option value="" disabled>
-                Choisir utilisateur
-              </option>
-              {usersOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  #{item.id} - {item.name || item.email} ({item.role})
+      {mode === 'by-user' ? (
+        <FormCard title="Taches par utilisateur" subtitle="Choisissez un utilisateur pour afficher ses tickets">
+          <div className="pm-inline-form">
+            <label>
+              Utilisateur
+              <select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>
+                <option value="" disabled>
+                  Choisir utilisateur
                 </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={handleTasksByUser}>
-            Afficher
-          </button>
-        </div>
+                {usersOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    #{item.id} - {item.name || item.email} ({item.role})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={handleTasksByUser}>
+              Afficher
+            </button>
+          </div>
 
-        <DataTable
-          columns={[
-            { key: 'id', label: 'ID' },
-            { key: 'title', label: 'Titre' },
-            { key: 'status', label: 'Statut' },
-            {
-              key: 'project',
-              label: 'Projet',
-              render: (row) => row?.project?.name || '-',
-            },
-          ]}
-          rows={tasksByUser}
-          emptyMessage="Aucune tache pour cet utilisateur"
-        />
-      </FormCard>
+          <DataTable
+            columns={[
+              { key: 'id', label: 'ID' },
+              { key: 'title', label: 'Titre' },
+              { key: 'status', label: 'Statut' },
+              {
+                key: 'project',
+                label: 'Projet',
+                render: (row) => row?.project?.name || '-',
+              },
+            ]}
+            rows={tasksByUser}
+            emptyMessage="Aucune tache pour cet utilisateur"
+          />
+        </FormCard>
+      ) : null}
+
+      {mode === 'deleted' && (isAdmin || isManager) ? (
+        <FormCard
+          title="Historique de suppression"
+          subtitle="Restaurez les taches supprimees selon vos droits"
+          actions={
+            <button type="button" onClick={loadDeletedTasks} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
+          <DataTable
+            columns={[
+              { key: 'id', label: 'ID' },
+              { key: 'title', label: 'Titre' },
+              { key: 'status', label: 'Statut' },
+              {
+                key: 'assignee',
+                label: 'Assigne a',
+                render: (row) => row?.assignedTo?.name || row?.assignedTo?.email || '-',
+              },
+              {
+                key: 'project',
+                label: 'Projet',
+                render: (row) => row?.project?.name || '-',
+              },
+              {
+                key: 'actions',
+                label: 'Action',
+                render: (row) => (
+                  <button type="button" onClick={() => handleRestoreTask(row.id)}>
+                    Restaurer
+                  </button>
+                ),
+              },
+            ]}
+            rows={deletedTasks}
+            emptyMessage="Aucune tache supprimee"
+          />
+        </FormCard>
+      ) : null}
     </>
   )
 }

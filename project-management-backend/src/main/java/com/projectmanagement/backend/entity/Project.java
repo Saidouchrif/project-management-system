@@ -1,7 +1,10 @@
 package com.projectmanagement.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,12 +27,12 @@ public class Project {
 
     private LocalDateTime deletedAt;
 
-    // 🔗 Manager dyal project
     @ManyToOne
     @JoinColumn(name = "manager_id")
+    @JsonIgnoreProperties({"password", "projects", "tasks", "deletedAt"})
     private User manager;
 
-    // 🔗 Tasks
     @OneToMany(mappedBy = "project")
+    @JsonIgnore
     private List<Task> tasks;
 }

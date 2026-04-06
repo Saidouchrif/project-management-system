@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FormCard } from '../../../components/ui/FormCard'
 import { StatusMessage } from '../../../components/ui/StatusMessage'
 import { DataTable } from '../../../components/ui/DataTable'
 import { usersApi } from '../../../services/users/usersApi'
 import { extractErrorMessage } from '../../shared/extractErrorMessage'
+import { PATHS } from '../../../routes/paths'
 
 const ROLE_OPTIONS = ['ADMIN', 'MANAGER', 'EMPLOYE']
 
-export function UsersPage() {
+function resolveMode(path) {
+  if (path === PATHS.usersCreate) return 'create'
+  if (path === PATHS.usersDeleted) return 'deleted'
+  return 'list'
+}
+
+export function UsersPage({ path, navigate }) {
+  const mode = useMemo(() => resolveMode(path), [path])
   const [users, setUsers] = useState([])
   const [deletedUsers, setDeletedUsers] = useState([])
-  const [showDeletedHistory, setShowDeletedHistory] = useState(false)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -29,7 +36,6 @@ export function UsersPage() {
     try {
       const response = await usersApi.listUsers()
       setUsers(Array.isArray(response.data) ? response.data : [])
-      setStatus('Liste utilisateurs mise a jour')
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
@@ -38,20 +44,26 @@ export function UsersPage() {
   }
 
   const loadDeletedUsers = async () => {
+    setLoading(true)
     setStatus('')
     setError('')
     try {
       const response = await usersApi.listDeletedUsers()
       setDeletedUsers(Array.isArray(response.data) ? response.data : [])
-      setStatus('Historique de suppression charge')
     } catch (err) {
       setError(extractErrorMessage(err))
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
+    if (mode === 'deleted') {
+      loadDeletedUsers()
+      return
+    }
     loadUsers()
-  }, [])
+  }, [mode])
 
   const handleCreate = async (event) => {
     event.preventDefault()
@@ -66,14 +78,8 @@ export function UsersPage() {
         },
         createForm.role,
       )
-      setStatus(response.message || 'Utilisateur cree')
-      setCreateForm({
-        name: '',
-        email: '',
-        password: '',
-        role: 'EMPLOYE',
-      })
-      await loadUsers()
+      setStatus(response.message || 'Utilisateur cree avec succes')
+      setCreateForm({ name: '', email: '', password: '', role: 'EMPLOYE' })
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -98,9 +104,6 @@ export function UsersPage() {
       const response = await usersApi.deleteUser(userId)
       setStatus(response.message || 'Utilisateur supprime')
       await loadUsers()
-      if (showDeletedHistory) {
-        await loadDeletedUsers()
-      }
     } catch (err) {
       setError(extractErrorMessage(err))
     }
@@ -112,73 +115,147 @@ export function UsersPage() {
     try {
       const response = await usersApi.restoreUser(userId)
       setStatus(response.message || 'Utilisateur restaure')
-      await loadUsers()
       await loadDeletedUsers()
     } catch (err) {
       setError(extractErrorMessage(err))
     }
   }
 
+  const topActions = (
+    <div className="pm-subnav" role="tablist" aria-label="Navigation utilisateurs">
+      <button
+        type="button"
+        className={mode === 'list' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.usersList)}
+      >
+        Utilisateurs actifs
+      </button>
+      <button
+        type="button"
+        className={mode === 'create' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.usersCreate)}
+      >
+        Ajouter utilisateur
+      </button>
+      <button
+        type="button"
+        className={mode === 'deleted' ? 'pm-chip pm-chip-active' : 'pm-chip'}
+        onClick={() => navigate(PATHS.usersDeleted)}
+      >
+        Historique suppression
+      </button>
+    </div>
+  )
+
   return (
     <>
-      <FormCard title="Utilisateurs actifs" subtitle="Gestion des comptes, roles et acces">
-        <div className="pm-action-row">
-          <button type="button" onClick={loadUsers} disabled={loading}>
-            {loading ? 'Chargement...' : 'Actualiser'}
-          </button>
-          <button
-            type="button"
-            className="pm-link-btn"
-            onClick={async () => {
-              const next = !showDeletedHistory
-              setShowDeletedHistory(next)
-              if (next) {
-                await loadDeletedUsers()
-              }
-            }}
-          >
-            {showDeletedHistory ? 'Masquer historique suppression' : 'Historique suppression'}
-          </button>
-        </div>
-
+      <FormCard title="Espace utilisateurs" subtitle="Administration des comptes et permissions" actions={topActions}>
         <StatusMessage type="success">{status}</StatusMessage>
         <StatusMessage type="error">{error}</StatusMessage>
-
-        <DataTable
-          columns={[
-            { key: 'id', label: 'ID' },
-            { key: 'name', label: 'Nom' },
-            { key: 'email', label: 'Email' },
-            { key: 'role', label: 'Role' },
-            {
-              key: 'actions',
-              label: 'Actions',
-              render: (row) => (
-                <div className="pm-cell-actions">
-                  <select
-                    defaultValue={row.role}
-                    onChange={(event) => handleRoleUpdate(row.id, event.target.value)}
-                  >
-                    {ROLE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => handleDelete(row.id)}>
-                    Supprimer
-                  </button>
-                </div>
-              ),
-            },
-          ]}
-          rows={users}
-          emptyMessage="Aucun utilisateur actif"
-        />
       </FormCard>
 
-      {showDeletedHistory ? (
-        <FormCard title="Historique suppression utilisateurs" subtitle="Selectionne et restaure le compte voulu">
+      {mode === 'list' ? (
+        <FormCard
+          title="Utilisateurs actifs"
+          subtitle="Mise a jour des roles et des droits d acces"
+          actions={
+            <button type="button" onClick={loadUsers} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
+          <DataTable
+            columns={[
+              { key: 'id', label: 'ID' },
+              { key: 'name', label: 'Nom' },
+              { key: 'email', label: 'Email' },
+              { key: 'role', label: 'Role' },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (row) => (
+                  <div className="pm-cell-actions">
+                    <select
+                      defaultValue={row.role}
+                      onChange={(event) => handleRoleUpdate(row.id, event.target.value)}
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" className="pm-btn-danger" onClick={() => handleDelete(row.id)}>
+                      Supprimer
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={users}
+            emptyMessage="Aucun utilisateur actif"
+          />
+        </FormCard>
+      ) : null}
+
+      {mode === 'create' ? (
+        <FormCard title="Ajouter un utilisateur" subtitle="Creation d un compte avec role choisi par admin">
+          <form className="pm-form" onSubmit={handleCreate}>
+            <label>
+              Nom
+              <input
+                type="text"
+                value={createForm.name}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Mot de passe
+              <input
+                type="password"
+                value={createForm.password}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Role
+              <select
+                value={createForm.role}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, role: event.target.value }))}
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit">Creer utilisateur</button>
+          </form>
+        </FormCard>
+      ) : null}
+
+      {mode === 'deleted' ? (
+        <FormCard
+          title="Historique de suppression"
+          subtitle="Selectionnez un compte supprime puis restaurez en un clic"
+          actions={
+            <button type="button" onClick={loadDeletedUsers} disabled={loading}>
+              {loading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          }
+        >
           <DataTable
             columns={[
               { key: 'id', label: 'ID' },
@@ -200,54 +277,6 @@ export function UsersPage() {
           />
         </FormCard>
       ) : null}
-
-      <FormCard title="Nouveau utilisateur" subtitle="Creation d un compte avec role choisi">
-        <form className="pm-form" onSubmit={handleCreate}>
-          <label>
-            Nom
-            <input
-              type="text"
-              value={createForm.name}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Email
-            <input
-              type="email"
-              value={createForm.email}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Mot de passe
-            <input
-              type="password"
-              value={createForm.password}
-              onChange={(event) =>
-                setCreateForm((prev) => ({ ...prev, password: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            Role
-            <select
-              value={createForm.role}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, role: event.target.value }))}
-            >
-              {ROLE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit">Creer utilisateur</button>
-        </form>
-      </FormCard>
     </>
   )
 }

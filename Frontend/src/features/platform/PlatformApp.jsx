@@ -10,69 +10,121 @@ import { TasksPage } from '../tasks/pages/TasksPage'
 
 function buildNavigation(role) {
   const nav = [
-    { path: PATHS.dashboard, label: 'Vue globale', title: 'Vue globale de la plateforme' },
-    { path: PATHS.profile, label: 'Mon profil', title: 'Gestion de votre compte' },
-    { path: PATHS.tasks, label: 'Taches', title: 'Gestion des taches et tickets' },
+    {
+      path: PATHS.dashboard,
+      label: 'Vue globale',
+      title: 'Vue globale de la plateforme',
+    },
+    {
+      path: PATHS.profile,
+      label: 'Mon profil',
+      title: 'Gestion de votre compte',
+    },
   ]
 
   if (role === 'ADMIN') {
-    nav.splice(2, 0, {
-      path: PATHS.users,
-      label: 'Utilisateurs',
-      title: 'Administration des utilisateurs',
-      badge: 'ADMIN',
-    })
-    nav.splice(3, 0, {
-      path: PATHS.projects,
-      label: 'Projets',
-      title: 'Supervision des projets',
-    })
+    nav.push(
+      {
+        path: PATHS.usersList,
+        matchPrefix: '/users/',
+        label: 'Utilisateurs',
+        title: 'Administration des utilisateurs',
+        badge: 'ADMIN',
+      },
+      {
+        path: PATHS.projectsList,
+        matchPrefix: '/projects/',
+        label: 'Projets',
+        title: 'Supervision des projets',
+      },
+    )
   }
 
   if (role === 'MANAGER') {
-    nav.splice(2, 0, {
-      path: PATHS.projects,
+    nav.push({
+      path: PATHS.projectsList,
+      matchPrefix: '/projects/',
       label: 'Projets',
       title: 'Gestion de vos projets',
       badge: 'MANAGER',
     })
   }
 
+  nav.push({
+    path: PATHS.tasksBoard,
+    matchPrefix: '/tasks/',
+    label: 'Taches',
+    title: 'Gestion des taches et tickets',
+  })
+
   return nav
+}
+
+function isAllowedPath(path, role) {
+  if (path === PATHS.dashboard || path === PATHS.profile) {
+    return true
+  }
+
+  if (role === 'ADMIN') {
+    return path.startsWith('/users/') || path.startsWith('/projects/') || path.startsWith('/tasks/')
+  }
+
+  if (role === 'MANAGER') {
+    return path.startsWith('/projects/') || path.startsWith('/tasks/')
+  }
+
+  return path.startsWith('/tasks/')
 }
 
 export function PlatformApp({ path, navigate, onLogout }) {
   const { user, role } = useAuth()
 
   const navItems = useMemo(() => buildNavigation(role), [role])
-  const allowedPaths = useMemo(() => new Set(navItems.map((item) => item.path)), [navItems])
 
   useEffect(() => {
-    if (!allowedPaths.has(path)) {
-      navigate(navItems[0].path, { replace: true })
+    if (!isAllowedPath(path, role)) {
+      navigate(PATHS.dashboard, { replace: true })
+      return
     }
-  }, [allowedPaths, navItems, navigate, path])
+
+    if (path === '/users' && role === 'ADMIN') {
+      navigate(PATHS.usersList, { replace: true })
+      return
+    }
+
+    if (path === '/projects' && (role === 'ADMIN' || role === 'MANAGER')) {
+      navigate(PATHS.projectsList, { replace: true })
+      return
+    }
+
+    if (path === '/tasks') {
+      navigate(PATHS.tasksBoard, { replace: true })
+    }
+  }, [navigate, path, role])
 
   let content = <OverviewPage role={role} />
 
   if (path === PATHS.profile) {
     content = <ProfilePage />
   }
-  if (path === PATHS.users && role === 'ADMIN') {
-    content = <UsersPage />
+
+  if (path.startsWith('/users/') && role === 'ADMIN') {
+    content = <UsersPage path={path} navigate={navigate} />
   }
-  if (path === PATHS.projects && (role === 'ADMIN' || role === 'MANAGER')) {
-    content = <ProjectsPage role={role} />
+
+  if (path.startsWith('/projects/') && (role === 'ADMIN' || role === 'MANAGER')) {
+    content = <ProjectsPage role={role} path={path} navigate={navigate} />
   }
-  if (path === PATHS.tasks) {
-    content = <TasksPage role={role} />
+
+  if (path.startsWith('/tasks/')) {
+    content = <TasksPage role={role} path={path} navigate={navigate} />
   }
 
   return (
     <AppShell
       logoSrc="/projectmanager.png"
       title="Project Manager"
-      subtitle="Workflows metier, securises et orientes production"
+      subtitle="Pilotage projet professionnel"
       navItems={navItems}
       currentPath={path}
       onNavigate={(next) => navigate(next)}

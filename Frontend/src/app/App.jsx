@@ -11,9 +11,16 @@ const PAGE_TITLES = {
   [PATHS.register]: 'Inscription',
   [PATHS.dashboard]: 'Tableau de bord',
   [PATHS.profile]: 'Mon profil',
-  [PATHS.users]: 'Gestion utilisateurs',
-  [PATHS.projects]: 'Gestion projets',
-  [PATHS.tasks]: 'Gestion taches',
+  [PATHS.usersList]: 'Utilisateurs actifs',
+  [PATHS.usersCreate]: 'Ajouter utilisateur',
+  [PATHS.usersDeleted]: 'Historique utilisateurs',
+  [PATHS.projectsList]: 'Projets actifs',
+  [PATHS.projectsCreate]: 'Ajouter projet',
+  [PATHS.projectsDeleted]: 'Historique projets',
+  [PATHS.tasksBoard]: 'Tableau des taches',
+  [PATHS.tasksCreate]: 'Ajouter tache',
+  [PATHS.tasksByUser]: 'Taches par utilisateur',
+  [PATHS.tasksDeleted]: 'Historique taches',
 }
 
 function AppContent() {
@@ -40,7 +47,12 @@ function AppContent() {
   }, [isAuthenticated, isReady, navigate, path])
 
   useEffect(() => {
-    const pageTitle = PAGE_TITLES[path] || 'Plateforme'
+    const pageTitle =
+      PAGE_TITLES[path] ||
+      (path.startsWith('/users/') && 'Gestion utilisateurs') ||
+      (path.startsWith('/projects/') && 'Gestion projets') ||
+      (path.startsWith('/tasks/') && 'Gestion taches') ||
+      'Plateforme'
     document.title = `Project Manager | ${pageTitle}`
   }, [path])
 
@@ -62,8 +74,13 @@ function AppContent() {
       <div className="pm-auth-layout">
         <aside className="pm-auth-brand">
           <img src="/projectmanager.png" alt="Project Manager" />
-          <h1>Project Manager Platform</h1>
-          <p>Planifie, attribue et pilote les projets de maniere professionnelle.</p>
+          <h1>Project Manager Suite</h1>
+          <p>Pilotez vos projets, vos equipes et vos tickets depuis un espace unique et structure.</p>
+          <ul className="pm-auth-feature-list">
+            <li>Board taches avec statut en temps reel</li>
+            <li>Gestion role-based pour ADMIN, MANAGER et EMPLOYE</li>
+            <li>Historique suppression avec restauration rapide</li>
+          </ul>
           <div className="pm-auth-brand-links">
             <button type="button" onClick={goLogin}>
               Connexion

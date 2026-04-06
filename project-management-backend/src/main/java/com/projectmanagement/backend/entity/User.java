@@ -1,7 +1,10 @@
 package com.projectmanagement.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,6 +25,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @Enumerated(EnumType.STRING)
@@ -29,15 +33,13 @@ public class User {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    private LocalDateTime deletedAt; // soft delete
+    private LocalDateTime deletedAt;
 
-    // 🔗 relations
-
-    // Manager → projects
     @OneToMany(mappedBy = "manager")
+    @JsonIgnore
     private List<Project> projects;
 
-    // Employe → tasks
     @OneToMany(mappedBy = "assignedTo")
+    @JsonIgnore
     private List<Task> tasks;
 }

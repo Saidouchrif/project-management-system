@@ -24,7 +24,16 @@ function toUrl(path, query) {
 async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || ''
   if (contentType.includes('application/json')) {
-    return response.json()
+    const text = await response.text()
+    if (!text) return {}
+    try {
+      return JSON.parse(text)
+    } catch {
+      return {
+        error: 'Reponse serveur invalide (JSON mal forme)',
+        raw: text,
+      }
+    }
   }
 
   const text = await response.text()

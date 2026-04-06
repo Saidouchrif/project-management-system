@@ -9,6 +9,13 @@ export function AppShell({
   onLogout,
   children,
 }) {
+  const activeNavItem =
+    navItems.find((item) => {
+      const prefix = item.matchPrefix || `${item.path}/`
+      return currentPath === item.path || currentPath.startsWith(prefix)
+    }) ||
+    navItems[0]
+
   return (
     <div className="pm-platform">
       <aside className="pm-sidebar">
@@ -25,7 +32,9 @@ export function AppShell({
             <button
               key={item.path}
               type="button"
-              className={currentPath === item.path ? 'pm-nav-link pm-nav-link-active' : 'pm-nav-link'}
+              className={
+                activeNavItem?.path === item.path ? 'pm-nav-link pm-nav-link-active' : 'pm-nav-link'
+              }
               onClick={() => onNavigate(item.path)}
             >
               <span>{item.label}</span>
@@ -48,7 +57,7 @@ export function AppShell({
 
       <section className="pm-workspace">
         <header className="pm-workspace-header">
-          <h2>{navItems.find((item) => item.path === currentPath)?.title || 'Tableau de bord'}</h2>
+          <h2>{activeNavItem?.title || 'Tableau de bord'}</h2>
         </header>
         <main className="pm-workspace-main">{children}</main>
       </section>

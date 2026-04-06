@@ -22,12 +22,15 @@ export function RegisterPage({ onGoLogin }) {
 
     try {
       await register(form)
-      setStatus('Compte cree avec succes. Tu peux maintenant te connecter.')
+      setStatus('Compte cree avec succes. Redirection vers la connexion...')
       setForm({
         name: '',
         email: '',
         password: '',
       })
+      setTimeout(() => {
+        onGoLogin()
+      }, 650)
     } catch (err) {
       setError(extractErrorMessage(err, 'Echec de creation du compte'))
     } finally {
@@ -39,9 +42,7 @@ export function RegisterPage({ onGoLogin }) {
     <div className="pm-auth-grid">
       <section className="pm-auth-card">
         <h2>Inscription</h2>
-        <p>
-          Chaque nouveau compte est cree par defaut avec le role <strong>EMPLOYE</strong>.
-        </p>
+        <p>Cree ton compte pour acceder a ton espace de travail.</p>
 
         <form onSubmit={onSubmit} className="pm-form">
           <label>

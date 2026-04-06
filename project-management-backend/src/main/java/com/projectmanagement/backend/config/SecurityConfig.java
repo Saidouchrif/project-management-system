@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
 import java.util.List;
@@ -34,17 +35,24 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(AbstractHttpConfigurer::disable)
             .cors(Customizer.withDefaults())
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
+            .exceptionHandling(exception -> exception
+                    .authenticationEntryPoint((request, response, ex) ->
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+            )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
 
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // PUBLIC
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                .requestMatchers("/api/auth/me").authenticated()
 
                 // USER SELF-PROFILE
                 .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
@@ -60,18 +68,20 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/projects/**").hasAuthority("MANAGER")
                 .requestMatchers(HttpMethod.GET, "/api/projects/**")
                 .hasAnyAuthority("ADMIN", "MANAGER")
-                .requestMatchers(HttpMethod.DELETE, "/api/projects/**").hasAnyAuthority("ADMIN", "MANAGER")
-                .requestMatchers(HttpMethod.PUT, "/api/projects/restore/**").hasAnyAuthority("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/projects/**")
+                .hasAnyAuthority("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/projects/restore/**")
+                .hasAnyAuthority("ADMIN", "MANAGER")
 
                 // TASKS
                 .requestMatchers(HttpMethod.POST, "/api/tasks/**").hasAuthority("MANAGER")
                 .requestMatchers(HttpMethod.PATCH, "/api/tasks/*/status").hasAuthority("EMPLOYE")
-                .requestMatchers(HttpMethod.GET, "/api/tasks/**").hasAnyAuthority("ADMIN", "MANAGER", "EMPLOYE")
-                .requestMatchers(HttpMethod.DELETE, "/api/tasks/**").hasAnyAuthority("ADMIN", "MANAGER")
-                .requestMatchers(HttpMethod.PUT, "/api/tasks/restore/**").hasAnyAuthority("ADMIN", "MANAGER")
-
-                // AUTH PROTECTED
-                .requestMatchers("/api/auth/me").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/tasks/**")
+                .hasAnyAuthority("ADMIN", "MANAGER", "EMPLOYE")
+                .requestMatchers(HttpMethod.DELETE, "/api/tasks/**")
+                .hasAnyAuthority("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/tasks/restore/**")
+                .hasAnyAuthority("ADMIN", "MANAGER")
 
                 .anyRequest().authenticated()
             )
@@ -88,12 +98,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
-                .toList());
+                .toList();
+        configuration.setAllowedOrigins(origins);
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
