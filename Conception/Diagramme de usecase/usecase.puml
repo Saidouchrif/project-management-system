@@ -1,0 +1,28 @@
+@startuml
+
+actor Admin
+actor "Chef de projet" as Manager
+actor Employe
+
+rectangle "Project Management System" {
+
+  Admin --> (Gérer les utilisateurs)
+  Admin --> (Créer comptes)
+  Admin --> (Attribuer rôles)
+
+  Manager --> (Créer projet)
+  Manager --> (Modifier projet)
+  Manager --> (Supprimer projet)
+  Manager --> (Assigner tâches)
+  Manager --> (Voir progression)
+
+  Employe --> (Voir tâches)
+  Employe --> (Mettre à jour statut)
+  Employe --> (Consulter projets)
+
+  (Créer projet) --> (Gérer tâches)
+  (Assigner tâches) --> (Mettre à jour statut)
+
+}
+
+@enduml
